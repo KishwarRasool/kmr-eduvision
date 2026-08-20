@@ -1,0 +1,252 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(TEACHER)
+  school    String?
+  phone     String?
+  avatar    String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ebooks           Ebook[]
+  tests            Test[]
+  questions        Question[]
+  assignments      TestAssignment[]
+  responses        StudentResponse[]
+  grades           Grade[]
+  testCreatedBy    Test[]           @relation("createdBy")
+  gradeGivenBy     Grade[]          @relation("gradedBy")
+
+  @@index([email])
+  @@index([role])
+}
+
+enum Role {
+  TEACHER
+  ADMIN
+  STUDENT
+}
+
+// Ebook model
+model Ebook {
+  id          String   @id @default(cuid())
+  teacherId   String
+  teacher     User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  fileName    String
+  fileType    String   // PDF or EPUB
+  filePath    String
+  fileSize    BigInt
+  pages       Int?
+  textContent String?  @db.Text // Full text extracted from PDF/EPUB
+  uploadedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  chapters  Chapter[]
+  tests     Test[]
+  questions Question[]
+
+  @@index([teacherId])
+  @@index([fileType])
+}
+
+// Chapter/Section model
+model Chapter {
+  id            String   @id @default(cuid())
+  ebookId       String
+  ebook         Ebook    @relation(fields: [ebookId], references: [id], onDelete: Cascade)
+  chapterNumber Int
+  title         String
+  content       String?  @db.Text
+  pageStart     Int?
+  pageEnd       Int?
+  createdAt     DateTime @default(now())
+
+  @@index([ebookId])
+}
+
+// Test model
+model Test {
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       User     @relation("createdBy", fields: [teacherId], references: [id], onDelete: Cascade)
+  ebookId       String?
+  ebook         Ebook?   @relation(fields: [ebookId], references: [id], onDelete: SetNull)
+  title         String
+  description   String?  @db.Text
+  instructions  String?  @db.Text
+  totalMarks    Int      @default(100)
+  passingMarks  Int      @default(40)
+  duration      Int?     // in minutes
+  shuffleQuestions Boolean @default(false)
+  status        TestStatus @default(DRAFT)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  questions    Question[]
+  assignments  TestAssignment[]
+  grades       Grade[]
+
+  @@index([teacherId])
+  @@index([ebookId])
+  @@index([status])
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+// Question model
+model Question {
+  id              String   @id @default(cuid())
+  testId          String
+  test            Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  teacherId       String
+  teacher         User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  ebookId         String?
+  ebook           Ebook?   @relation(fields: [ebookId], references: [id], onDelete: SetNull)
+  questionText    String   @db.Text
+  type            QuestionType @default(MCQ)
+  difficulty      Difficulty @default(MEDIUM)
+  marks           Int      @default(1)
+  correctAnswer   String?  @db.Text
+  explanation     String?  @db.Text
+  questionOrder   Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  options   QuestionOption[]
+  responses StudentResponse[]
+
+  @@index([testId])
+  @@index([teacherId])
+  @@index([ebookId])
+  @@index([type])
+}
+
+enum QuestionType {
+  MCQ
+  SHORT_ANSWER
+  ESSAY
+  TRUE_FALSE
+  FILL_BLANKS
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// Question Options (for MCQ)
+model QuestionOption {
+  id           String   @id @default(cuid())
+  questionId   String
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionText   String   @db.Text
+  optionLetter String   // A, B, C, D
+  isCorrect    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([questionId])
+}
+
+// Test Assignment model
+model TestAssignment {
+  id                String         @id @default(cuid())
+  testId            String
+  test              Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           User           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignedAt        DateTime       @default(now())
+  dueDate           DateTime?
+  status            AssignmentStatus @default(ASSIGNED)
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  responses StudentResponse[]
+  grade     Grade?
+
+  @@unique([testId, studentId])
+  @@index([testId])
+  @@index([studentId])
+  @@index([status])
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+}
+
+// Student Response model
+model StudentResponse {
+  id                  String         @id @default(cuid())
+  testAssignmentId    String
+  testAssignment      TestAssignment @relation(fields: [testAssignmentId], references: [id], onDelete: Cascade)
+  questionId          String
+  question            Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText          String?        @db.Text
+  selectedOption      String?        // for MCQ
+  marksObtained       Int            @default(0)
+  isCorrect           Boolean?
+  submittedAt         DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([testAssignmentId])
+  @@index([questionId])
+}
+
+// Grade model
+model Grade {
+  id                String         @id @default(cuid())
+  testAssignmentId  String         @unique
+  testAssignment    TestAssignment @relation(fields: [testAssignmentId], references: [id], onDelete: Cascade)
+  testId            String
+  test              Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           User           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  graderId          String
+  grader            User           @relation("gradedBy", fields: [graderId], references: [id], onDelete: SetNull)
+  totalMarks        Int
+  obtainedMarks     Int
+  percentage        Float
+  grade             String?        // A, B, C, D, F
+  feedback          String?        @db.Text
+  gradedAt          DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([testAssignmentId])
+  @@index([testId])
+  @@index([studentId])
+  @@index([graderId])
+}
