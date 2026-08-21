@@ -11,7 +11,6 @@ import {
   Download,
   Users,
   Trash2,
-  Edit,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -46,6 +45,12 @@ interface TestDetail {
   questions: Question[];
 }
 
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export default function TestDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -53,6 +58,14 @@ export default function TestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publishing, setPublishing] = useState(false);
+
+  // Assign modal state
+  const [showAssign, setShowAssign] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [dueDate, setDueDate] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignMessage, setAssignMessage] = useState('');
 
   useEffect(() => {
     if (params.id) fetchTest();
@@ -68,6 +81,54 @@ export default function TestDetailPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openAssignModal = async () => {
+    setShowAssign(true);
+    setAssignMessage('');
+    setSelectedStudents([]);
+    try {
+      const res = await fetch('/api/students');
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleStudent = (id: string) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
+
+  const handleAssign = async () => {
+    if (!test || selectedStudents.length === 0) return;
+    setAssigning(true);
+    setAssignMessage('');
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testId: test.id,
+          studentIds: selectedStudents,
+          dueDate: dueDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to assign');
+      setAssignMessage(data.message);
+      setTimeout(() => {
+        setShowAssign(false);
+      }, 1500);
+    } catch (err: any) {
+      setAssignMessage(err.message);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -167,6 +228,13 @@ export default function TestDetailPage() {
             : test.status === 'PUBLISHED'
             ? 'Unpublish'
             : 'Publish Test'}
+        </button>
+        <button
+          onClick={openAssignModal}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+        >
+          <Users size={16} />
+          Assign to Students
         </button>
         <button
           onClick={handleDownloadPDF}
@@ -292,6 +360,91 @@ export default function TestDetailPage() {
       <p className="text-xs text-gray-400">
         Created {formatDate(new Date(test.createdAt))}
       </p>
+
+      {/* Assign Modal */}
+      {showAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowAssign(false)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-full max-w-md space-y-4 shadow-xl max-h-[80vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold">Assign Test to Students</h2>
+            <p className="text-sm text-gray-500">{test.title}</p>
+
+            {assignMessage && (
+              <div
+                className={`p-2 rounded text-sm ${
+                  assignMessage.includes('Assigned')
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-red-50 text-red-700'
+                }`}
+              >
+                {assignMessage}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Due Date (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Select Students ({selectedStudents.length} selected)
+              </p>
+              {students.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">
+                  No students found. Add students first.
+                </p>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                  {students.map((s) => (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedStudents.includes(s.id)}
+                        onChange={() => toggleStudent(s.id)}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{s.name}</p>
+                        <p className="text-xs text-gray-500">{s.email}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAssign(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssign}
+                disabled={assigning || selectedStudents.length === 0}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {assigning ? 'Assigning...' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

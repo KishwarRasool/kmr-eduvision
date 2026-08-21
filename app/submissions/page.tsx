@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ClipboardCheck, Search } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -134,6 +135,9 @@ export default function SubmissionsPage() {
                   <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3 hidden lg:table-cell">
                     Date
                   </th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -168,6 +172,14 @@ export default function SubmissionsPage() {
                       {sub.submittedAt
                         ? formatDate(new Date(sub.submittedAt))
                         : formatDate(new Date(sub.assignedAt))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/submissions/${sub.id}`}
+                        className="text-sm text-primary hover:underline font-medium"
+                      >
+                        {sub.status === 'GRADED' ? 'View' : 'Grade'}
+                      </Link>
                     </td>
                   </tr>
                 ))}
