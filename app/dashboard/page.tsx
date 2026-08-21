@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   BookOpen,
@@ -11,34 +12,63 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+interface Stats {
+  totalEbooks: number;
+  totalTests: number;
+  totalStudents: number;
+  totalSubmissions: number;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const [stats, setStats] = useState<Stats>({
+    totalEbooks: 0,
+    totalTests: 0,
+    totalStudents: 0,
+    totalSubmissions: 0,
+  });
 
-  const stats = [
+  useEffect(() => {
+    fetch('/api/reports')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.stats) {
+          setStats({
+            totalEbooks: d.stats.totalEbooks,
+            totalTests: d.stats.totalTests,
+            totalStudents: d.stats.totalStudents,
+            totalSubmissions: d.stats.totalSubmissions,
+          });
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const statCards = [
     {
       label: 'Total Ebooks',
-      value: '0',
+      value: String(stats.totalEbooks),
       icon: BookOpen,
       color: 'bg-blue-500',
       href: '/ebooks',
     },
     {
       label: 'Active Tests',
-      value: '0',
+      value: String(stats.totalTests),
       icon: FileText,
       color: 'bg-orange-500',
       href: '/tests',
     },
     {
       label: 'Students',
-      value: '0',
+      value: String(stats.totalStudents),
       icon: Users,
       color: 'bg-green-500',
       href: '/students',
     },
     {
-      label: 'Pending Submissions',
-      value: '0',
+      label: 'Submissions',
+      value: String(stats.totalSubmissions),
       icon: ClipboardCheck,
       color: 'bg-purple-500',
       href: '/submissions',
@@ -68,7 +98,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
           Welcome back, {session?.user?.name?.split(' ')[0] || 'Teacher'} 👋
@@ -78,9 +107,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => {
+        {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <Link
@@ -106,7 +134,6 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Quick Actions */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Quick Actions
@@ -133,18 +160,25 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Activity Placeholder */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Clock size={20} className="text-gray-500" />
           <h2 className="text-lg font-semibold text-gray-900">
-            Recent Activity
+            Getting Started
           </h2>
         </div>
-        <div className="text-center py-10 text-gray-500">
-          <p>No recent activity yet.</p>
-          <p className="text-sm mt-1">
-            Upload an ebook or create a test to get started.
+        <div className="space-y-3 text-sm text-gray-600">
+          <p>
+            1. <strong>Upload ebooks</strong> — Add PDF/EPUB textbooks to your library
+          </p>
+          <p>
+            2. <strong>Create tests</strong> — Build assessments with MCQ, True/False, Short Answer & Essay questions
+          </p>
+          <p>
+            3. <strong>Add students</strong> — Register students so you can assign tests
+          </p>
+          <p>
+            4. <strong>Track progress</strong> — View submissions and reports
           </p>
         </div>
       </div>
