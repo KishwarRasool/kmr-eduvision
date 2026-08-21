@@ -16,20 +16,19 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "dependencies": {
-    "next": "^14.0.0",
+    "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@nextui-org/react": "^2.2.0",
-    "@nextui-org/theme": "^2.1.0",
     "next-auth": "^4.24.0",
     "@prisma/client": "^5.7.0",
     "bcryptjs": "^2.4.3",
     "zod": "^3.22.0",
     "axios": "^1.6.0",
     "date-fns": "^2.30.0",
-    "react-query": "^3.39.3",
+    "@tanstack/react-query": "^5.0.0",
     "recharts": "^2.10.0",
     "jspdf": "^2.5.0",
+    "jspdf-autotable": "^3.8.0",
     "html2pdf.js": "^0.10.1",
     "docx": "^8.5.0",
     "react-to-print": "^2.14.0",
@@ -39,22 +38,24 @@
     "framer-motion": "^10.16.0",
     "lucide-react": "^0.294.0",
     "sonner": "^1.2.0",
-    "tailwindcss": "^3.3.0",
-    "shadcn-ui": "^0.8.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
-    "tailwind-merge": "^2.2.0"
+    "tailwind-merge": "^2.2.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^9.0.0",
     "typescript": "^5.3.0",
     "prisma": "^5.7.0",
     "prettier": "^3.1.0",
     "eslint": "^8.55.0",
-    "eslint-config-next": "^14.0.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20.10.0"
+    "eslint-config-next": "^14.2.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
   }
 }

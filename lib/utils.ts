@@ -1,8 +1,16 @@
 import crypto from 'crypto';
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 /**
  * Utility functions for the KMR-EduVision application
  */
+
+// Tailwind class merger
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 
 // Format date
 export const formatDate = (date: Date): string => {
