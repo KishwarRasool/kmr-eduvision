@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Sparkles } from 'lucide-react';
 
 interface Ebook {
   id: string;
@@ -32,7 +32,9 @@ export default function CreateTestPage() {
   const [ebooks, setEbooks] = useState<Ebook[]>([]);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [genCount, setGenCount] = useState(5);
 
   useEffect(() => {
     fetch('/api/ebooks')
@@ -59,6 +61,52 @@ export default function CreateTestPage() {
         correctAnswer: '',
       },
     ]);
+  };
+
+  const generateQuestions = async () => {
+    if (!ebookId) {
+      setError('Select an ebook first to generate questions from its content');
+      return;
+    }
+    setGenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/questions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ebookId, numberOfQuestions: genCount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Generation failed');
+
+      const newQs: QuestionDraft[] = (data.questions || []).map((q: any) => ({
+        id: crypto.randomUUID(),
+        questionText: q.questionText || '',
+        type: q.type || 'MCQ',
+        marks: q.marks || 1,
+        difficulty: q.difficulty || 'MEDIUM',
+        options:
+          q.options && q.options.length > 0
+            ? q.options.map((o: any) => ({
+                letter: o.letter,
+                text: o.text,
+                isCorrect: !!o.isCorrect,
+              }))
+            : [
+                { letter: 'A', text: '', isCorrect: false },
+                { letter: 'B', text: '', isCorrect: false },
+                { letter: 'C', text: '', isCorrect: false },
+                { letter: 'D', text: '', isCorrect: false },
+              ],
+        correctAnswer: q.correctAnswer || '',
+      }));
+
+      setQuestions((prev) => [...prev, ...newQs]);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate questions');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const removeQuestion = (id: string) => {
@@ -247,18 +295,41 @@ export default function CreateTestPage() {
 
         {/* Questions */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="font-semibold text-gray-900">
               Questions ({questions.length})
             </h2>
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="inline-flex items-center gap-1.5 text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-medium"
-            >
-              <Plus size={16} />
-              Add Question
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={genCount}
+                onChange={(e) => setGenCount(Number(e.target.value))}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+              >
+                {[3, 5, 8, 10, 15].map((n) => (
+                  <option key={n} value={n}>
+                    {n} Qs
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={generateQuestions}
+                disabled={generating || !ebookId}
+                className="inline-flex items-center gap-1.5 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 font-medium disabled:opacity-50"
+                title={!ebookId ? 'Select an ebook first' : 'Generate from ebook content'}
+              >
+                <Sparkles size={16} />
+                {generating ? 'Generating...' : 'AI Generate'}
+              </button>
+              <button
+                type="button"
+                onClick={addQuestion}
+                className="inline-flex items-center gap-1.5 text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-medium"
+              >
+                <Plus size={16} />
+                Add Question
+              </button>
+            </div>
           </div>
 
           {questions.length === 0 && (

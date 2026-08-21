@@ -1,9 +1,8 @@
 /**
- * PDF Generation utilities for KMR-EduVision
+ * Professional PDF Generation for KMR-EduVision tests & reports
  */
 
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 interface TestPDFData {
   testTitle: string;
@@ -29,128 +28,256 @@ interface TestPDFData {
   includeAnswerKey?: boolean;
 }
 
-// Generate Test PDF
+const COLORS = {
+  primary: [30, 64, 175] as [number, number, number],
+  dark: [31, 41, 55] as [number, number, number],
+  gray: [107, 114, 128] as [number, number, number],
+  lightGray: [243, 244, 246] as [number, number, number],
+  green: [22, 163, 74] as [number, number, number],
+  border: [209, 213, 219] as [number, number, number],
+};
+
+function drawHeaderBar(pdf: jsPDF, pageWidth: number) {
+  pdf.setFillColor(...COLORS.primary);
+  pdf.rect(0, 0, pageWidth, 8, 'F');
+}
+
+function drawFooter(pdf: jsPDF, pageWidth: number, pageHeight: number, pageNum: number, totalPages: number, schoolName?: string) {
+  pdf.setDrawColor(...COLORS.border);
+  pdf.setLineWidth(0.3);
+  pdf.line(14, pageHeight - 14, pageWidth - 14, pageHeight - 14);
+
+  pdf.setFontSize(8);
+  pdf.setTextColor(...COLORS.gray);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(schoolName || 'KMR-EduVision', 14, pageHeight - 8);
+  pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+  pdf.text('Confidential', pageWidth - 14, pageHeight - 8, { align: 'right' });
+}
+
+function ensureSpace(pdf: jsPDF, y: number, needed: number, pageHeight: number, margin: number): number {
+  if (y + needed > pageHeight - 20) {
+    pdf.addPage();
+    return margin + 6;
+  }
+  return y;
+}
+
 export const generateTestPDF = (data: TestPDFData): jsPDF => {
-  const pdf = new jsPDF();
+  const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 10;
+  const margin = 16;
   const contentWidth = pageWidth - 2 * margin;
-  let yPosition = margin;
+  let y = 16;
 
-  // Header
+  // Top accent bar
+  drawHeaderBar(pdf, pageWidth);
+
+  // School name
   if (data.schoolName) {
-    pdf.setFontSize(14);
-    pdf.text(data.schoolName, pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 8;
+    y = 18;
+    pdf.setFontSize(11);
+    pdf.setTextColor(...COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(data.schoolName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += 7;
+  } else {
+    y = 18;
   }
 
-  // Test Title
+  // Test title
   pdf.setFontSize(16);
-  pdf.text(data.testTitle, pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 8;
+  pdf.setTextColor(...COLORS.dark);
+  pdf.setFont('helvetica', 'bold');
+  const titleLines = pdf.splitTextToSize(data.testTitle, contentWidth);
+  pdf.text(titleLines, pageWidth / 2, y, { align: 'center' });
+  y += titleLines.length * 7 + 2;
 
-  // Test Details
-  pdf.setFontSize(10);
+  // Decorative line under title
+  pdf.setDrawColor(...COLORS.primary);
+  pdf.setLineWidth(0.6);
+  pdf.line(pageWidth / 2 - 30, y, pageWidth / 2 + 30, y);
+  y += 8;
+
+  // Info box
+  pdf.setFillColor(...COLORS.lightGray);
+  pdf.roundedRect(margin, y, contentWidth, 18, 2, 2, 'F');
+
+  pdf.setFontSize(9);
+  pdf.setTextColor(...COLORS.dark);
+  pdf.setFont('helvetica', 'normal');
+
+  const infoY = y + 6;
+  const col1 = margin + 4;
+  const col2 = margin + contentWidth / 3;
+  const col3 = margin + (2 * contentWidth) / 3;
+
   if (data.className) {
-    pdf.text(`Class: ${data.className}`, margin, yPosition);
-    yPosition += 6;
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Class:', col1, infoY);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(data.className, col1 + 14, infoY);
   }
   if (data.date) {
-    pdf.text(`Date: ${data.date}`, margin, yPosition);
-    yPosition += 6;
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Date:', col2, infoY);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(data.date, col2 + 12, infoY);
   }
   if (data.duration) {
-    pdf.text(`Duration: ${data.duration} minutes`, margin, yPosition);
-    yPosition += 6;
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Duration:', col3, infoY);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`${data.duration} min`, col3 + 20, infoY);
   }
-  if (data.totalMarks) {
-    pdf.text(`Total Marks: ${data.totalMarks}`, margin, yPosition);
-    yPosition += 6;
-  }
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Total Marks:', col1, infoY + 7);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(String(data.totalMarks || 100), col1 + 24, infoY + 7);
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Name: ________________', col2, infoY + 7);
+
+  y += 24;
 
   // Instructions
   if (data.instructions) {
-    yPosition += 4;
-    pdf.setFontSize(11);
-    pdf.text('Instructions:', margin, yPosition);
-    yPosition += 6;
+    y = ensureSpace(pdf, y, 20, pageHeight, margin);
+    pdf.setFillColor(239, 246, 255); // light blue
+    const instrLines = pdf.splitTextToSize(data.instructions, contentWidth - 8);
+    const boxH = 8 + instrLines.length * 4;
+    pdf.roundedRect(margin, y, contentWidth, boxH, 2, 2, 'F');
+
     pdf.setFontSize(9);
-    const instructions = pdf.splitTextToSize(data.instructions, contentWidth - 5);
-    pdf.text(instructions, margin + 5, yPosition);
-    yPosition += instructions.length * 4 + 4;
+    pdf.setTextColor(...COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Instructions', margin + 4, y + 5);
+
+    pdf.setTextColor(...COLORS.dark);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(instrLines, margin + 4, y + 10);
+    y += boxH + 6;
   }
 
-  // Questions
-  yPosition += 4;
+  // Questions heading
   pdf.setFontSize(11);
-  pdf.text('Questions:', margin, yPosition);
-  yPosition += 8;
+  pdf.setTextColor(...COLORS.primary);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('QUESTIONS', margin, y);
+  y += 2;
+  pdf.setDrawColor(...COLORS.primary);
+  pdf.setLineWidth(0.4);
+  pdf.line(margin, y, margin + 28, y);
+  y += 8;
 
-  data.questions.forEach((question, index) => {
-    // Check if we need a new page
-    if (yPosition > pageHeight - 30) {
-      pdf.addPage();
-      yPosition = margin;
-    }
+  // Questions
+  data.questions.forEach((question) => {
+    // Estimate height needed
+    const qLines = pdf.splitTextToSize(question.questionText, contentWidth - 10);
+    let needed = 10 + qLines.length * 4.5;
+    if (question.options?.length) needed += question.options.length * 6;
+    if (question.type === 'SHORT_ANSWER') needed += 12;
+    if (question.type === 'ESSAY') needed += 28;
+
+    y = ensureSpace(pdf, y, needed, pageHeight, margin);
+
+    // Question number badge
+    pdf.setFillColor(...COLORS.primary);
+    pdf.circle(margin + 4, y + 1, 3.5, 'F');
+    pdf.setFontSize(8);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(String(question.questionNumber), margin + 4, y + 2.2, { align: 'center' });
 
     // Question text
     pdf.setFontSize(10);
-    pdf.setFont('', 'bold');
-    const questionLabel = `Q${question.questionNumber}. (${question.marks} marks)`;
-    pdf.text(questionLabel, margin, yPosition);
-    yPosition += 6;
+    pdf.setTextColor(...COLORS.dark);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(qLines, margin + 10, y + 2);
 
-    pdf.setFont('', 'normal');
-    const questionLines = pdf.splitTextToSize(question.questionText, contentWidth - 5);
-    pdf.text(questionLines, margin + 5, yPosition);
-    yPosition += questionLines.length * 4 + 3;
+    // Marks badge
+    pdf.setFontSize(8);
+    pdf.setTextColor(...COLORS.gray);
+    pdf.setFont('helvetica', 'italic');
+    const marksLabel = `[${question.marks} mark${question.marks !== 1 ? 's' : ''}]`;
+    pdf.text(marksLabel, pageWidth - margin, y + 2, { align: 'right' });
 
-    // Options (for MCQ)
+    y += qLines.length * 4.5 + 4;
+
+    // Options
     if (question.options && question.options.length > 0) {
       pdf.setFontSize(9);
       question.options.forEach((option) => {
-        const optionText = `${option.letter}) ${option.text}`;
-        const optionLines = pdf.splitTextToSize(optionText, contentWidth - 15);
-        pdf.text(optionLines, margin + 10, yPosition);
-        yPosition += optionLines.length * 3 + 2;
+        y = ensureSpace(pdf, y, 7, pageHeight, margin);
 
-        // Show correct answer if requested
         if (question.showAnswer && option.isCorrect) {
-          pdf.setTextColor(0, 128, 0); // Green
-          pdf.text('✓ (Correct)', margin + contentWidth - 30, yPosition - 3);
-          pdf.setTextColor(0, 0, 0); // Black
+          pdf.setFillColor(220, 252, 231); // light green
+          pdf.roundedRect(margin + 8, y - 3, contentWidth - 10, 6, 1, 1, 'F');
+          pdf.setTextColor(...COLORS.green);
+          pdf.setFont('helvetica', 'bold');
+        } else {
+          pdf.setTextColor(...COLORS.dark);
+          pdf.setFont('helvetica', 'normal');
         }
+
+        const optText = `${option.letter})  ${option.text}`;
+        const optLines = pdf.splitTextToSize(optText, contentWidth - 16);
+        pdf.text(optLines, margin + 12, y);
+        y += optLines.length * 4.5 + 1.5;
       });
+      y += 2;
     }
 
-    // Space for answer
-    yPosition += 8;
-    if (question.type === 'SHORT_ANSWER' || question.type === 'ESSAY') {
-      pdf.setDrawColor(200, 200, 200);
-      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 15;
+    // Answer lines for subjective
+    if (question.type === 'SHORT_ANSWER') {
+      pdf.setDrawColor(...COLORS.border);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin + 8, y + 4, pageWidth - margin, y + 4);
+      y += 10;
     }
 
-    yPosition += 2;
+    if (question.type === 'ESSAY') {
+      pdf.setDrawColor(...COLORS.border);
+      pdf.setLineWidth(0.3);
+      for (let i = 0; i < 4; i++) {
+        pdf.line(margin + 8, y + 4, pageWidth - margin, y + 4);
+        y += 7;
+      }
+      y += 2;
+    }
+
+    // Correct answer note when showing key
+    if (question.showAnswer && question.correctAnswer && question.type !== 'MCQ') {
+      pdf.setFontSize(8);
+      pdf.setTextColor(...COLORS.green);
+      pdf.setFont('helvetica', 'italic');
+      pdf.text(`Answer: ${question.correctAnswer}`, margin + 10, y);
+      y += 5;
+    }
+
+    y += 4;
   });
+
+  // Add footers to all pages
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    drawFooter(pdf, pageWidth, pageHeight, i, totalPages, data.schoolName);
+  }
 
   return pdf;
 };
 
-// Generate Answer Key PDF
 export const generateAnswerKeyPDF = (data: TestPDFData): jsPDF => {
-  const pdfData = {
+  return generateTestPDF({
     ...data,
-    questions: data.questions.map((q) => ({
-      ...q,
-      showAnswer: true,
-    })),
-  };
-  return generateTestPDF(pdfData);
+    testTitle: `${data.testTitle} — Answer Key`,
+    questions: data.questions.map((q) => ({ ...q, showAnswer: true })),
+  });
 };
 
-// Generate Report PDF
 export const generateReportPDF = (reportData: {
   studentName: string;
   className: string;
@@ -160,7 +287,7 @@ export const generateReportPDF = (reportData: {
   percentage: number;
   grade: string;
   feedback?: string;
-  detailedResults: Array<{
+  detailedResults?: Array<{
     questionNumber: number;
     questionText: string;
     marks: number;
@@ -170,55 +297,105 @@ export const generateReportPDF = (reportData: {
   }>;
   schoolName?: string;
 }): jsPDF => {
-  const pdf = new jsPDF();
+  const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 10;
-  const contentWidth = pageWidth - 2 * margin;
-  let yPosition = margin;
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 16;
+  let y = 16;
 
-  // Header
+  drawHeaderBar(pdf, pageWidth);
+
+  y = 20;
   if (reportData.schoolName) {
-    pdf.setFontSize(14);
-    pdf.text(reportData.schoolName, pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 8;
+    pdf.setFontSize(11);
+    pdf.setTextColor(...COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(reportData.schoolName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += 8;
   }
 
-  pdf.setFontSize(12);
-  pdf.text('Student Performance Report', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 10;
+  pdf.setFontSize(15);
+  pdf.setTextColor(...COLORS.dark);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Student Performance Report', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+  pdf.setDrawColor(...COLORS.primary);
+  pdf.setLineWidth(0.5);
+  pdf.line(pageWidth / 2 - 35, y, pageWidth / 2 + 35, y);
+  y += 12;
 
-  // Student and Test Information
+  // Student info card
+  pdf.setFillColor(...COLORS.lightGray);
+  pdf.roundedRect(margin, y, pageWidth - 2 * margin, 28, 2, 2, 'F');
+
   pdf.setFontSize(10);
-  pdf.text(`Student: ${reportData.studentName}`, margin, yPosition);
-  yPosition += 6;
-  pdf.text(`Class: ${reportData.className}`, margin, yPosition);
-  yPosition += 6;
-  pdf.text(`Test: ${reportData.testName}`, margin, yPosition);
-  yPosition += 8;
+  pdf.setTextColor(...COLORS.dark);
+  const infoItems = [
+    ['Student', reportData.studentName],
+    ['Class', reportData.className],
+    ['Test', reportData.testName],
+  ];
+  infoItems.forEach((item, i) => {
+    const iy = y + 7 + i * 7;
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${item[0]}:`, margin + 5, iy);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(item[1], margin + 28, iy);
+  });
+  y += 36;
 
-  // Results Summary
-  pdf.setFont('', 'bold');
-  pdf.text('Results Summary', margin, yPosition);
-  yPosition += 6;
-  pdf.setFont('', 'normal');
-  pdf.text(`Total Marks: ${reportData.totalMarks}`, margin, yPosition);
-  yPosition += 5;
-  pdf.text(`Obtained Marks: ${reportData.obtainedMarks}`, margin, yPosition);
-  yPosition += 5;
-  pdf.text(`Percentage: ${reportData.percentage}%`, margin, yPosition);
-  yPosition += 5;
-  pdf.text(`Grade: ${reportData.grade}`, margin, yPosition);
-  yPosition += 8;
+  // Results summary
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(...COLORS.primary);
+  pdf.text('Results Summary', margin, y);
+  y += 8;
 
-  // Feedback
+  const results = [
+    ['Total Marks', String(reportData.totalMarks)],
+    ['Obtained Marks', String(reportData.obtainedMarks)],
+    ['Percentage', `${reportData.percentage}%`],
+    ['Grade', reportData.grade],
+  ];
+
+  results.forEach(([label, value], i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = margin + col * ((pageWidth - 2 * margin) / 2);
+    const ry = y + row * 10;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(...COLORS.gray);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(label, x, ry);
+
+    pdf.setFontSize(12);
+    pdf.setTextColor(...COLORS.dark);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(value, x + 40, ry);
+  });
+  y += 28;
+
   if (reportData.feedback) {
-    pdf.setFont('', 'bold');
-    pdf.text('Feedback:', margin, yPosition);
-    yPosition += 6;
-    pdf.setFont('', 'normal');
-    const feedbackLines = pdf.splitTextToSize(reportData.feedback, contentWidth - 5);
-    pdf.text(feedbackLines, margin + 5, yPosition);
-    yPosition += feedbackLines.length * 4 + 4;
+    pdf.setFontSize(10);
+    pdf.setTextColor(...COLORS.primary);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Teacher Feedback', margin, y);
+    y += 6;
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(...COLORS.dark);
+    pdf.setFont('helvetica', 'normal');
+    const fbLines = pdf.splitTextToSize(reportData.feedback, pageWidth - 2 * margin);
+    pdf.text(fbLines, margin, y);
+    y += fbLines.length * 4 + 6;
+  }
+
+  // Footer
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    drawFooter(pdf, pageWidth, pageHeight, i, totalPages, reportData.schoolName);
   }
 
   return pdf;

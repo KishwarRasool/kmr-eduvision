@@ -78,14 +78,5 @@ export const extractChapters = (text: string): Array<{ title: string; content: s
   return chapters;
 };
 
-// Generate questions from text (AI integration ready)
-export const generateQuestionsFromText = async (
-  text: string,
-  numberOfQuestions: number = 5
-): Promise<Array<{ questionText: string; type: string }>> => {
-  // This is a placeholder for future AI integration
-  // Can be integrated with OpenAI API or similar service
-
-  // For now, return empty array (to be implemented with AI)
-  return [];
-};
+// Re-export from dedicated question generator
+export { generateQuestionsFromText } from './question-generator';
