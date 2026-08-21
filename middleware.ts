@@ -6,11 +6,27 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    // Protect dashboard and related routes
-    if (path.startsWith('/dashboard') || path.startsWith('/ebooks') || path.startsWith('/tests') || path.startsWith('/students') || path.startsWith('/submissions') || path.startsWith('/reports')) {
-      if (!token) {
-        return NextResponse.redirect(new URL('/auth/login', req.url));
-      }
+    if (!token) {
+      return NextResponse.redirect(new URL('/auth/login', req.url));
+    }
+
+    // Teachers/admins should not use student take-test as primary (allowed but ok)
+    // Students redirected away from teacher routes
+    const teacherRoutes = [
+      '/dashboard',
+      '/ebooks',
+      '/tests',
+      '/students',
+      '/submissions',
+      '/reports',
+    ];
+
+    const isTeacherRoute = teacherRoutes.some(
+      (r) => path === r || path.startsWith(r + '/')
+    );
+
+    if (isTeacherRoute && token.role === 'STUDENT') {
+      return NextResponse.redirect(new URL('/take-test', req.url));
     }
 
     return NextResponse.next();
@@ -30,5 +46,6 @@ export const config = {
     '/students/:path*',
     '/submissions/:path*',
     '/reports/:path*',
+    '/take-test/:path*',
   ],
 };

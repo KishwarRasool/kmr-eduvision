@@ -28,7 +28,14 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password');
       } else {
-        router.push('/dashboard');
+        // Redirect based on role after a short delay to let session load
+        const sessionRes = await fetch('/api/auth/session');
+        const session = await sessionRes.json();
+        if (session?.user?.role === 'STUDENT') {
+          router.push('/take-test');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -100,10 +107,15 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg space-y-2">
           <p className="text-sm text-blue-700">
-            <strong>Demo Account:</strong><br />
+            <strong>Teacher Demo:</strong><br />
             Email: teacher@example.com<br />
+            Password: password123
+          </p>
+          <p className="text-sm text-blue-700">
+            <strong>Student Demo:</strong><br />
+            Email: student1@example.com<br />
             Password: password123
           </p>
         </div>
